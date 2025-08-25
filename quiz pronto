@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interativo de Biologia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Animação para resposta correta */
+        .correct-answer-pulse {
+            animation: pulse-green 0.8s ease-in-out;
+        }
+        @keyframes pulse-green {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        /* Animação para resposta incorreta */
+        .incorrect-answer-shake {
+            animation: shake-red 0.6s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake-red {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .option-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .option-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+    <div id="quiz-container" class="w-full max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+        
+        <!-- Cabeçalho do Quiz -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-700">Quiz de Biologia</h1>
+            <div class="text-lg font-semibold bg-slate-200 text-slate-600 px-4 py-2 rounded-lg">
+                <span id="question-counter">1</span> / <span id="total-questions">20</span>
+            </div>
+        </div>
+
+        <!-- Pergunta -->
+        <div id="question-area" class="mb-6">
+            <p id="question-text" class="text-lg sm:text-xl font-medium leading-relaxed"></p>
+        </div>
+
+        <!-- Opções de Resposta -->
+        <div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <!-- As opções serão inseridas aqui pelo JavaScript -->
+        </div>
+
+        <!-- Feedback e Explicação -->
+        <div id="feedback-area" class="hidden mt-6 p-4 rounded-lg bg-slate-50 border">
+            <h3 id="feedback-title" class="font-bold text-lg mb-2"></h3>
+            <p id="explanation-text" class="text-slate-600"></p>
+        </div>
+
+        <!-- Botão de Próxima Pergunta -->
+        <div class="flex justify-end mt-8">
+            <button id="next-btn" class="hidden bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors duration-300 shadow-md">
+                Próxima Pergunta &rarr;
+            </button>
+        </div>
+    </div>
+
+    <!-- Tela de Resultados -->
+    <div id="results-container" class="hidden w-full max-w-2xl mx-auto bg-white p-8 sm:p-10 rounded-2xl shadow-lg text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-slate-700 mb-4">Quiz Finalizado!</h2>
+        <p class="text-slate-600 text-lg mb-6">Seu resultado final é:</p>
+        <div id="score-circle" class="relative w-40 h-40 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-6">
+            <span id="score-percentage" class="text-4xl font-bold text-slate-800"></span>
+        </div>
+        <p id="feedback-message" class="text-xl font-semibold mb-8"></p>
+        <button id="restart-btn" class="w-full bg-blue-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-blue-700 transition-colors duration-300 shadow-md text-lg">
+            Refazer o Quiz
+        </button>
+    </div>
+
+    <script>
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackArea = document.getElementById('feedback-area');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const explanationText = document.getElementById('explanation-text');
+        const nextBtn = document.getElementById('next-btn');
+        const quizContainer = document.getElementById('quiz-container');
+        const resultsContainer = document.getElementById('results-container');
+        const questionCounter = document.getElementById('question-counter');
+        const totalQuestionsEl = document.getElementById('total-questions');
+        const scorePercentage = document.getElementById('score-percentage');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Banco de 40 questões com base no documento de Biologia
+        const questionBank = [
+            {
+                question: "Qual é a principal função da membrana plasmática?",
+                options: ["Produzir energia", "Separar o conteúdo celular do meio externo", "Dar rigidez à célula", "Armazenar o DNA"],
+                answer: "Separar o conteúdo celular do meio externo",
+                explanation: "A membrana plasmática atua como uma barreira que separa o citoplasma do ambiente externo, controlando o que entra e sai da célula (permeabilidade seletiva)."
+            },
+            {
+                question: "A membrana plasmática é composta principalmente por uma bicamada de:",
+                options: ["Proteínas", "Carboidratos", "Fosfolipídios", "Ácidos nucleicos"],
+                answer: "Fosfolipídios",
+                explanation: "Sua estrutura básica é uma bicamada de fosfolipídios, com porções hidrofílicas (afinidade com água) voltadas para fora e porções hidrofóbicas para dentro."
+            },
+            {
+                question: "Qual estrutura, presente em células vegetais, bactérias e fungos, confere rigidez e proteção?",
+                options: ["Glicocálix", "Membrana Plasmática", "Parede Celular", "Citoesqueleto"],
+                answer: "Parede Celular",
+                explanation: "A parede celular é uma camada externa rígida que protege e dá sustentação a células vegetais, de fungos, bactérias e algas."
+            },
+            {
+                question: "A parede celular dos fungos é composta principalmente por:",
+                options: ["Celulose", "Quitina", "Peptidoglicano", "Colesterol"],
+                answer: "Quitina",
+                explanation: "Enquanto a parede celular de vegetais é de celulose e a de bactérias é de peptidoglicano, a dos fungos é formada por quitina."
+            },
+            {
+                question: "O Glicocálix, uma camada externa à membrana, é encontrado em qual tipo de célula?",
+                options: ["Células vegetais", "Células animais", "Bactérias", "Fungos"],
+                answer: "Células animais",
+                explanation: "O glicocálix é exclusivo das células animais e tem funções de proteção, reconhecimento e adesão celular."
+            },
+            {
+                question: "O transporte de O₂ e CO₂ através da membrana, sem gasto de energia, é um exemplo de:",
+                options: ["Osmose", "Difusão facilitada", "Transporte ativo", "Difusão simples"],
+                answer: "Difusão simples",
+                explanation: "A difusão simples é a passagem de moléculas pequenas pela membrana, a favor do gradiente de concentração, sem ajuda de proteínas e sem gasto de energia."
+            },
+            {
+                question: "O que é osmose?",
+                options: ["Transporte de íons com gasto de energia", "Transporte exclusivo de água através da membrana", "Ingestão de partículas sólidas pela célula", "Transporte de glicose com ajuda de proteínas"],
+                answer: "Transporte exclusivo de água através da membrana",
+                explanation: "Osmose é o movimento da água (solvente) do meio menos concentrado (hipotônico) para o mais concentrado (hipertônico), buscando o equilíbrio."
+            },
+            {
+                question: "Qual a principal característica do transporte ativo?",
+                options: ["Ocorre a favor do gradiente de concentração", "Não utiliza proteínas de membrana", "Ocorre com gasto de energia (ATP)", "Transporta apenas água"],
+                answer: "Ocorre com gasto de energia (ATP)",
+                explanation: "O transporte ativo move substâncias contra o gradiente de concentração (do meio menos para o mais concentrado), o que exige gasto de energia."
+            },
+            {
+                question: "A bomba de sódio e potássio é um exemplo clássico de:",
+                options: ["Transporte passivo", "Transporte ativo primário", "Pinocitose", "Exocitose"],
+                answer: "Transporte ativo primário",
+                explanation: "A bomba de Na⁺/K⁺ utiliza energia diretamente do ATP para transportar esses íons contra seus gradientes de concentração, sendo um transporte ativo primário."
+            },
+            {
+                question: "O processo de 'englobar partículas sólidas', como bactérias, é chamado de:",
+                options: ["Pinocitose", "Exocitose", "Fagocitose", "Osmose"],
+                answer: "Fagocitose",
+                explanation: "Fagocitose (do grego 'phagein' = comer) é um tipo de endocitose onde a célula ingere partículas grandes e sólidas."
+            },
+            {
+                question: "Qual organela é responsável pela respiração celular e produção de ATP?",
+                options: ["Núcleo", "Ribossomo", "Mitocôndria", "Lisossomo"],
+                answer: "Mitocôndria",
+                explanation: "As mitocôndrias são as 'usinas de energia' da célula, onde ocorre a respiração celular para gerar ATP."
+            },
+            {
+                question: "A síntese de proteínas é realizada por qual organela?",
+                options: ["Complexo de Golgi", "Ribossomos", "Lisossomos", "Vacúolos"],
+                answer: "Ribossomos",
+                explanation: "Os ribossomos, livres ou no Retículo Endoplasmático Rugoso, são os locais onde ocorre a tradução do RNAm em proteínas."
+            },
+            {
+                question: "Qual a função do Retículo Endoplasmático Liso?",
+                options: ["Síntese de proteínas para exportação", "Produção de lipídios e desintoxicação celular", "Digestão de partículas", "Armazenamento de água"],
+                answer: "Produção de lipídios e desintoxicação celular",
+                explanation: "O RE Liso está envolvido na síntese de lipídios, hormônios esteroides e na neutralização de toxinas."
+            },
+            {
+                question: "O 'centro de empacotamento e distribuição' da célula, que modifica e envia proteínas, é o:",
+                options: ["Núcleo", "Complexo de Golgi", "Peroxissomo", "Citoesqueleto"],
+                answer: "Complexo de Golgi",
+                explanation: "O Complexo de Golgi recebe, modifica, empacota e endereça proteínas e lipídios para seus destinos finais."
+            },
+            {
+                question: "Qual organela atua na digestão intracelular, sendo considerada a 'lixeira' da célula?",
+                options: ["Mitocôndria", "Ribossomo", "Lisossomo", "Centríolo"],
+                answer: "Lisossomo",
+                explanation: "Os lisossomos contêm enzimas digestivas que quebram partículas de alimento, organelas velhas e microrganismos."
+            },
+            {
+                question: "Os cloroplastos, responsáveis pela fotossíntese, são um tipo de:",
+                options: ["Lisossomo", "Plastídio", "Peroxissomo", "Vacúolo"],
+                answer: "Plastídio",
+                explanation: "Plastídios são organelas de células vegetais. Os cloroplastos são o tipo que contém clorofila e realiza a fotossíntese."
+            },
+            {
+                question: "A Teoria Endossimbiótica explica a origem de quais organelas?",
+                options: ["Núcleo e Ribossomos", "Lisossomos e Peroxissomos", "Mitocôndrias e Cloroplastos", "Complexo de Golgi e Retículo Endoplasmático"],
+                answer: "Mitocôndrias e Cloroplastos",
+                explanation: "A teoria propõe que mitocôndrias e cloroplastos originaram-se de bactérias que foram englobadas por células ancestrais e estabeleceram uma relação de simbiose."
+            },
+            {
+                question: "O processo pelo qual a célula digere suas próprias organelas danificadas é chamado de:",
+                options: ["Digestão heterofágica", "Fagocitose", "Digestão autofágica", "Exocitose"],
+                answer: "Digestão autofágica",
+                explanation: "Autofagia ('comer a si mesmo') é o mecanismo de reciclagem celular, onde a célula degrada seus próprios componentes para se manter saudável."
+            },
+            {
+                question: "Qual organela, presente em células animais, é fundamental para a divisão celular?",
+                options: ["Vacúolo", "Cloroplasto", "Parede Celular", "Centríolos"],
+                answer: "Centríolos",
+                explanation: "Os centríolos organizam as fibras do fuso durante a mitose e a meiose, garantindo a correta separação dos cromossomos."
+            },
+            {
+                question: "Onde o DNA da célula eucariótica é primariamente armazenado?",
+                options: ["No citoplasma", "No ribossomo", "No núcleo", "Na mitocôndria"],
+                answer: "No núcleo",
+                explanation: "O núcleo é o centro de controle que armazena a maior parte do material genético (DNA) da célula e coordena suas atividades."
+            },
+            {
+                question: "Verdadeiro ou Falso: Células animais possuem parede celular.",
+                options: ["Verdadeiro", "Falso"],
+                answer: "Falso",
+                explanation: "A ausência de parede celular é uma característica distintiva das células animais, o que lhes confere maior flexibilidade."
+            },
+            {
+                question: "O transporte de glicose para dentro da célula, com auxílio de uma proteína transportadora, mas sem gasto de energia, é chamado de:",
+                options: ["Difusão simples", "Difusão facilitada", "Bomba de sódio e potássio", "Pinocitose"],
+                answer: "Difusão facilitada",
+                explanation: "A difusão facilitada é um tipo de transporte passivo que utiliza proteínas de membrana para 'facilitar' a passagem de moléculas maiores, como a glicose."
+            },
+            {
+                question: "A expulsão de substâncias, como hormônios, para fora da célula através de vesículas é a:",
+                options: ["Endocitose", "Fagocitose", "Exocitose", "Pinocitose"],
+                answer: "Exocitose",
+                explanation: "Exocitose é o processo de transporte em bloco onde a célula libera substâncias para o meio externo."
+            },
+            {
+                question: "Qual organela é responsável por quebrar substâncias tóxicas como a água oxigenada?",
+                options: ["Lisossomo", "Peroxissomo", "Ribossomo", "Complexo de Golgi"],
+                answer: "Peroxissomo",
+                explanation: "Os peroxissomos contêm enzimas, como a catalase, que neutralizam compostos tóxicos, protegendo a célula."
+            },
+            {
+                question: "Em células vegetais, qual organela armazena grande quantidade de água e ajuda a manter a rigidez celular?",
+                options: ["Mitocôndria", "Núcleo", "Vacúolo de suco celular", "Cloroplasto"],
+                answer: "Vacúolo de suco celular",
+                explanation: "O grande vacúolo central das células vegetais armazena água e sais, exercendo uma pressão (turgor) que ajuda a sustentar a célula."
+            },
+            {
+                question: "A rede de fibras que dá forma e sustentação à célula é chamada de:",
+                options: ["Parede celular", "Glicocálix", "Citoesqueleto", "Membrana nuclear"],
+                answer: "Citoesqueleto",
+                explanation: "O citoesqueleto é uma complexa rede de filamentos proteicos que mantém a forma da célula, organiza as organelas e participa do movimento celular."
+            },
+            {
+                question: "Cromoplastos são plastídios responsáveis por:",
+                options: ["Realizar a fotossíntese", "Armazenar amido", "Dar cor a flores e frutos", "Produzir lipídios"],
+                answer: "Dar cor a flores e frutos",
+                explanation: "Os cromoplastos armazenam pigmentos (exceto a clorofila) que dão as cores amarela, laranja e vermelha a muitas partes da planta."
+            },
+            {
+                question: "Qual evidência apoia a Teoria Endossimbiótica?",
+                options: ["Mitocôndrias e cloroplastos não têm membrana", "Eles possuem DNA e ribossomos próprios", "São encontrados em todas as células", "Produzem as mesmas proteínas que o núcleo"],
+                answer: "Eles possuem DNA e ribossomos próprios",
+                explanation: "O fato de mitocôndrias e cloroplastos terem seu próprio material genético e ribossomos, semelhantes aos de bactérias, é uma forte evidência de sua origem endossimbiótica."
+            },
+            {
+                question: "A digestão de uma bactéria por um glóbulo branco é um exemplo de:",
+                options: ["Digestão autofágica", "Digestão heterofágica", "Exocitose", "Transporte passivo"],
+                answer: "Digestão heterofágica",
+                explanation: "É heterofágica porque a célula está digerindo material externo ('hetero' = outro) que foi capturado por fagocitose."
+            },
+            {
+                question: "O que é pinocitose?",
+                options: ["A 'expulsão' de resíduos sólidos", "O 'ato de beber' da célula, capturando fluidos", "A digestão de organelas velhas", "O transporte de gases pela membrana"],
+                answer: "O 'ato de beber' da célula, capturando fluidos",
+                explanation: "Pinocitose é um tipo de endocitose em que a célula engloba pequenas gotas de líquido do meio externo."
+            },
+            {
+                question: "O Retículo Endoplasmático Rugoso tem essa aparência por causa da presença de:",
+                options: ["Lisossomos", "Lipídios", "Ribossomos", "Poros"],
+                answer: "Ribossomos",
+                explanation: "Os ribossomos aderidos à sua membrana conferem o aspecto 'rugoso' e participam da síntese de proteínas que serão exportadas ou inseridas em membranas."
+            },
+            {
+                question: "Qual a composição da parede celular das bactérias?",
+                options: ["Celulose", "Quitina", "Peptidoglicano", "Glicocálix"],
+                answer: "Peptidoglicano",
+                explanation: "A parede celular bacteriana é composta por uma malha de peptidoglicano (ou mureína), uma estrutura única desse reino."
+            },
+            {
+                question: "Se uma célula animal for colocada em água pura (meio hipotônico), o que acontecerá?",
+                options: ["Ela murchará (perderá água)", "Ela explodirá (ganhará água excessivamente)", "Nada acontecerá", "Ela fará fotossíntese"],
+                answer: "Ela explodirá (ganhará água excessivamente)",
+                explanation: "Por osmose, a água entrará na célula para tentar equilibrar as concentrações. Como a célula animal não tem parede celular, ela inchará até romper (hemólise)."
+            },
+            {
+                question: "A função de reconhecimento celular, importante para o sistema imune, é desempenhada principalmente pelo:",
+                options: ["Citoesqueleto", "Glicocálix", "Núcleo", "Vacúolo"],
+                answer: "Glicocálix",
+                explanation: "Os carboidratos do glicocálix funcionam como uma 'identidade' celular, permitindo que as células do corpo se reconheçam e identifiquem células estranhas."
+            },
+            {
+                question: "O transporte ativo secundário (cotransporte) utiliza energia de qual fonte?",
+                options: ["Diretamente do ATP", "Do gradiente de concentração criado por outro transporte", "Da luz solar", "Da quebra de proteínas"],
+                answer: "Do gradiente de concentração criado por outro transporte",
+                explanation: "Ele aproveita a 'energia potencial' de um gradiente iônico (como o de sódio), previamente estabelecido por um transporte ativo primário, para mover outra substância."
+            },
+            {
+                question: "Leucoplastos são plastídios incolores com função de:",
+                options: ["Fotossíntese", "Atrair polinizadores", "Armazenamento de substâncias como amido", "Digestão celular"],
+                answer: "Armazenamento de substâncias como amido",
+                explanation: "Leucoplastos (leuco = branco) são especializados em armazenar reservas energéticas, como o amido na batata (amiloplastos)."
+            },
+            {
+                question: "A formação de cílios e flagelos em células animais depende da organização feita pelos:",
+                options: ["Lisossomos", "Ribossomos", "Centríolos", "Peroxissomos"],
+                answer: "Centríolos",
+                explanation: "Os centríolos atuam como corpos basais, que são a base para a montagem da estrutura de microtúbulos que formam os cílios e flagelos."
+            },
+            {
+                question: "A fusão de um fagossomo com um lisossomo dá origem a qual estrutura?",
+                options: ["Autofagossomo", "Vacúolo digestivo", "Peroxissomo", "Corpo residual"],
+                answer: "Vacúolo digestivo",
+                explanation: "O vacúolo digestivo (ou fagolisossomo) é a vesícula onde o material capturado será digerido pelas enzimas lisossômicas."
+            },
+            {
+                question: "Qual o 'centro de comando' que controla todas as atividades da célula?",
+                options: ["Mitocôndria", "Complexo de Golgi", "Citoplasma", "Núcleo"],
+                answer: "Núcleo",
+                explanation: "O núcleo contém o DNA com todas as instruções para o funcionamento, crescimento, metabolismo e reprodução da célula."
+            },
+            {
+                question: "Verdadeiro ou Falso: O transporte passivo sempre ocorre do meio menos concentrado para o mais concentrado.",
+                options: ["Verdadeiro", "Falso"],
+                answer: "Falso",
+                explanation: "É o contrário. O transporte passivo ocorre a favor do gradiente, ou seja, do meio mais concentrado para o menos concentrado, buscando o equilíbrio."
+            }
+        ];
+
+        let shuffledQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        const questionsPerRound = 20;
+
+        function shuffleArray(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startQuiz() {
+            score = 0;
+            currentQuestionIndex = 0;
+            shuffledQuestions = shuffleArray([...questionBank]).slice(0, questionsPerRound);
+            totalQuestionsEl.textContent = questionsPerRound;
+            
+            resultsContainer.classList.add('hidden');
+            quizContainer.classList.remove('hidden');
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            resetState();
+            const currentQuestion = shuffledQuestions[currentQuestionIndex];
+            questionText.textContent = currentQuestion.question;
+            questionCounter.textContent = currentQuestionIndex + 1;
+
+            currentQuestion.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.classList.add('option-btn', 'w-full', 'bg-slate-100', 'p-4', 'rounded-lg', 'text-left', 'hover:bg-slate-200', 'disabled:opacity-70', 'disabled:cursor-not-allowed');
+                button.addEventListener('click', selectAnswer);
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        function resetState() {
+            nextBtn.classList.add('hidden');
+            feedbackArea.classList.add('hidden');
+            while (optionsContainer.firstChild) {
+                optionsContainer.removeChild(optionsContainer.firstChild);
+            }
+        }
+
+        function selectAnswer(e) {
+            const selectedBtn = e.target;
+            const isCorrect = selectedBtn.textContent === shuffledQuestions[currentQuestionIndex].answer;
+
+            if (isCorrect) {
+                score++;
+                selectedBtn.classList.add('bg-green-500', 'text-white', 'correct-answer-pulse');
+                feedbackTitle.textContent = "Resposta Correta!";
+                feedbackTitle.className = 'font-bold text-lg mb-2 text-green-600';
+            } else {
+                selectedBtn.classList.add('bg-red-500', 'text-white', 'incorrect-answer-shake');
+                feedbackTitle.textContent = "Resposta Incorreta!";
+                feedbackTitle.className = 'font-bold text-lg mb-2 text-red-600';
+            }
+            
+            explanationText.textContent = shuffledQuestions[currentQuestionIndex].explanation;
+            feedbackArea.classList.remove('hidden');
+
+            Array.from(optionsContainer.children).forEach(button => {
+                if (button.textContent === shuffledQuestions[currentQuestionIndex].answer && !isCorrect) {
+                    button.classList.add('bg-green-500', 'text-white');
+                }
+                button.disabled = true;
+            });
+
+            nextBtn.classList.remove('hidden');
+        }
+
+        function showResults() {
+            quizContainer.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+            
+            const percentage = Math.round((score / questionsPerRound) * 100);
+            scorePercentage.textContent = `${percentage}%`;
+
+            if (percentage >= 80) {
+                feedbackMessage.textContent = "Excelente! Você está acima da média e demonstrou um ótimo conhecimento.";
+                feedbackMessage.className = 'text-xl font-semibold mb-8 text-green-600';
+            } else if (percentage >= 60) {
+                feedbackMessage.textContent = "Bom trabalho! Você está na média, mas com um pouco mais de estudo pode alcançar a excelência.";
+                feedbackMessage.className = 'text-xl font-semibold mb-8 text-yellow-600';
+            } else {
+                feedbackMessage.textContent = "Não desanime! Estude um pouco mais os conceitos e tente novamente para melhorar seu resultado.";
+                feedbackMessage.className = 'text-xl font-semibold mb-8 text-red-600';
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questionsPerRound) {
+                showQuestion();
+            } else {
+                showResults();
+            }
+        });
+
+        restartBtn.addEventListener('click', startQuiz);
+
+        // Iniciar o quiz quando a página carregar
+        startQuiz();
+    </script>
+</body>
+</html>
